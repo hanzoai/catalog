@@ -1,0 +1,24 @@
+name = "hanzo-public-catalog"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+account_id = "94a3e3f299092abb1feda2a7481ea845"
+
+# Public catalog host — the worker owns catalog.hanzo.ai entirely (CF-proxied,
+# cert managed by Cloudflare). Public consumers (marketing, pre-login browsing,
+# docs) hit this directly; api.hanzo.ai/v1/{models,pricing} is split here by
+# Traefik (universe infra/k8s/ingress/routes.yaml).
+routes = [
+  { pattern = "catalog.hanzo.ai", custom_domain = true },
+]
+
+# Durable store for the cached artifacts (survives deploys; primed by the cron).
+[[kv_namespaces]]
+binding = "CATALOG"
+id = "9cffb94fd2da4a2b80b36e541250a655"
+
+# Daily refresh — re-fetch every registry origin, warm KV + edge cache.
+[triggers]
+crons = ["0 6 * * *"]
+
+[observability]
+enabled = true
