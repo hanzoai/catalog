@@ -37,6 +37,38 @@ export const REGISTRY = {
     origin: `${CATALOG_ORIGIN}/v1/plans`,
     description: 'Subscription / cloud plans.',
   },
+  // Infrastructure pricing sub-resources. Namespaced under /v1/pricing/* so the
+  // one existing api.hanzo.ai catalog router (PathPrefix /v1/pricing) fronts them
+  // with no new Traefik rule. Cloud + GPU keep their upstream top-level origins
+  // (/v1/cloud, /v1/gpu) — the public path is namespaced, the origin is not.
+  '/v1/pricing/cloud': {
+    origin: `${CATALOG_ORIGIN}/v1/cloud`,
+    description: 'Cloud compute pricing (instances, vCPU/RAM/disk tiers).',
+  },
+  '/v1/pricing/gpu': {
+    origin: `${CATALOG_ORIGIN}/v1/gpu`,
+    description: 'GPU pricing (upstream serves this at /v1/gpu).',
+  },
+  '/v1/pricing/datastore': {
+    origin: `${CATALOG_ORIGIN}/v1/pricing/datastore`,
+    description: 'Datastore / managed-storage pricing.',
+  },
+  '/v1/pricing/cloud/plans': {
+    origin: `${CATALOG_ORIGIN}/v1/pricing/cloud/plans`,
+    description: 'Cloud subscription plans.',
+  },
+  '/v1/pricing/cloud/regions': {
+    origin: `${CATALOG_ORIGIN}/v1/pricing/cloud/regions`,
+    description: 'Cloud regions.',
+  },
+  '/v1/pricing/cloud/storage': {
+    origin: `${CATALOG_ORIGIN}/v1/pricing/cloud/storage`,
+    description: 'Cloud block/object storage pricing.',
+  },
+  '/v1/pricing/summary': {
+    origin: `${CATALOG_ORIGIN}/v1/pricing/summary`,
+    description: 'Pricing summary rollup.',
+  },
 };
 
 export const PATHS = Object.keys(REGISTRY);

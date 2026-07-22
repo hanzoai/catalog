@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
 import SNAPSHOT from '../src/snapshot.js';
+import { PATHS } from '../src/registry.js';
 
 // ---- stubs -----------------------------------------------------------------
 function fakeKV() {
@@ -64,7 +65,7 @@ test('index / lists the registry resources', async () => {
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.service, 'hanzo-public-catalog');
-  assert.deepEqual(body.resources.map((r) => r.path).sort(), ['/v1/models', '/v1/plans', '/v1/pricing']);
+  assert.deepEqual(body.resources.map((r) => r.path).sort(), [...PATHS].sort());
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
 });
 
