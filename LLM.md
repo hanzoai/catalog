@@ -31,24 +31,29 @@ stale-while-revalidate=86400`, ETag + `If-None-Match` 304, `HEAD`/`OPTIONS`.
 - **Registry = one place:** `src/registry.js`. Add a line to expose a new resource; the
   worker and the snapshot generator both read it.
 
-## Routing (`api.hanzo.ai/v1/{models,pricing}` → here)
+## Routing — this worker serves `catalog.hanzo.ai`, and nothing else
 
-`api.hanzo.ai` is DNS-only (not CF-proxied) so streaming LLM traffic never transits CF.
-The catalog paths are split at Traefik — `universe/infra/k8s/ingress/routes.yaml`, router
-`api-hanzo-ai-catalog` (priority 200):
-`Host(api.hanzo.ai) && (PathPrefix(/v1/models) || PathPrefix(/v1/pricing))` → service
-`public-catalog` (→ `https://catalog.hanzo.ai`, `passHostHeader: false` so CF matches the
-worker's custom domain). Priority 200 beats the catch-all (1) and the k8s Host-only
-ingresses (computed priority).
+One host, owned outright (`wrangler.toml` `custom_domain`). Public consumers —
+marketing, pre-login model browsing, docs — read it directly, at the nearest CF edge.
 
-The auth-branch lives in the **worker**, not Traefik — the `hanzoai/ingress` fork can't
-match on a header (no `HeadersRegexp`; single-arg `Method`). A request WITH an
-`Authorization` header on a mirrored path is proxied by the worker to `api.cloud.hanzo.ai`
-(→ gateway → cloud-api), so a token gets cloud-api's own view (its callable-model list);
-anonymous GETs get the edge cache. See `authedOrigin` in `src/registry.js`.
+**It used to also answer `api.hanzo.ai/v1/{models,pricing}`,** via a Traefik router
+(`universe/infra/k8s/ingress/routes.yaml`, `api-hanzo-ai-catalog`, priority 200) that
+path-carved those prefixes off the API host. That router is deleted, because a second
+implementation at an address the cloud origin publishes cannot be described by anything:
 
-Consumers should prefer `catalog.hanzo.ai` directly (nearest CF edge). The api.hanzo.ai
-path is a compat alias.
+- all 23 of cloud `apps/pricing`'s `/v1/pricing*` paths were published and unreachable —
+  14 of the 21 literal GETs answered this worker's own 404 (the registry holds 10
+  addresses; the document holds 23, and they overlap in 7);
+- `GET`/`POST /v1/models/{model}/access` (hanzoai/ai) were uncallable in production —
+  404 on GET, 405 on POST, since this worker allows only `GET, HEAD, OPTIONS`;
+- `/v1/models` returned the marketing catalog to anonymous callers and cloud's
+  callable-model list to token holders. One address, two documents, chosen by a header
+  no OpenAPI document can express and no SDK can predict. That `authedOrigin` fork and
+  its `api.cloud.hanzo.ai` second API host are gone with it.
+
+api.hanzo.ai is the API and the cloud origin owns every path on it. A carve off that
+host must not overlap a path cloud publishes — the rule is stated at `routes.yaml`,
+where carves are written.
 
 ## Develop / deploy
 
@@ -65,6 +70,6 @@ CF: account `94a3e3f299092abb1feda2a7481ea845`, zone `hanzo.ai`, KV `CATALOG`
 
 1. Add a line to `src/registry.js` (`publicPath → { origin, description }`).
 2. `npm run snapshot && npm test && npx wrangler deploy`.
-3. (If it must also answer on `api.hanzo.ai`) add its `PathPrefix` to the Traefik
-   `api-hanzo-ai-catalog` router rule. Set `authedOrigin` if a token should get
-   cloud-api's own view of that path instead of the public cache.
+
+A resource that must answer on `api.hanzo.ai` does not belong here — it belongs in
+the cloud origin, which publishes it in the one document.

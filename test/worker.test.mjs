@@ -185,36 +185,20 @@ test('scheduled refresh populates KV + manifest for every resource', async () =>
   assert.ok(kv.store.get('__manifest'));
 });
 
-const CLOUD_MODELS_URL = 'https://api.cloud.hanzo.ai/v1/models';
-
-test('authed GET /v1/models proxies to cloud-api, not the public cache', async () => {
-  globalThis.caches = { default: fakeCache() };
-  const kv = fakeKV();
-  await kv.put('/v1/models', MODELS_JSON, { metadata: {} }); // public cache has data
-  installFetch({ [CLOUD_MODELS_URL]: { body: '{"object":"list","data":[{"id":"callable-only"}]}' } });
-  const res = await worker.fetch(req('/v1/models', { headers: { authorization: 'Bearer tok' } }), { CATALOG: kv }, ctxFactory().ctx);
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get('x-catalog-source'), 'cloud-api');
-  assert.match(res.headers.get('cache-control'), /no-store/);
-  assert.equal((await res.json()).data[0].id, 'callable-only'); // cloud-api's view, not the cache
-});
-
-test('authed upstream error is passed through (a token gets cloud-api reality)', async () => {
+// ONE ADDRESS, ONE ANSWER. A token used to make this worker proxy /v1/models and
+// /v1/pricing to api.cloud.hanzo.ai, so one URL returned two different documents
+// depending on a header — a shape no OpenAPI document can express and no SDK can
+// predict. catalog.hanzo.ai is public browsing and only that; the authenticated
+// view lives at api.hanzo.ai, served by the origin that describes it.
+test('a token changes nothing: the public cache answers, no upstream is dialled', async () => {
   globalThis.caches = { default: fakeCache() };
   const kv = fakeKV();
   await kv.put('/v1/models', MODELS_JSON, { metadata: {} });
-  installFetch({ [CLOUD_MODELS_URL]: { status: 401, body: '{"error":"unauthorized"}' } });
-  const res = await worker.fetch(req('/v1/models', { headers: { authorization: 'Bearer bad' } }), { CATALOG: kv }, ctxFactory().ctx);
-  assert.equal(res.status, 401);
-});
-
-test('authed /v1/plans (no authedOrigin) still served from the public cache', async () => {
-  globalThis.caches = { default: fakeCache() };
-  const kv = fakeKV();
-  await kv.put('/v1/plans', '{"plans":["x"]}', { metadata: {} });
-  const res = await worker.fetch(req('/v1/plans', { headers: { authorization: 'Bearer tok' } }), { CATALOG: kv }, ctxFactory().ctx);
+  installFetch({}); // any outbound fetch would throw "unexpected fetch"
+  const res = await worker.fetch(req('/v1/models', { headers: { authorization: 'Bearer tok' } }), { CATALOG: kv }, ctxFactory().ctx);
   assert.equal(res.status, 200);
-  assert.notEqual(res.headers.get('x-catalog-source'), 'cloud-api');
+  assert.equal(res.headers.get('x-catalog-source'), 'kv');
+  assert.equal(await res.text(), MODELS_JSON);
 });
 
 test('scheduled refresh records per-origin failure without aborting others', async () => {

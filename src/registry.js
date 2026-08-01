@@ -9,38 +9,35 @@
  * front of it so public browsing is fast, global, and resilient to the origin.
  *
  * Each entry: publicPath -> { origin, description }.
- *   publicPath  the stable public URL path this worker serves (and that Traefik
- *               splits from api.hanzo.ai to here).
+ *   publicPath  the stable public URL path this worker serves, on
+ *               catalog.hanzo.ai — the host this worker owns outright.
  *   origin      the canonical upstream URL the daily cron refreshes from.
+ *
+ * These paths are served HERE and nowhere else. api.hanzo.ai is the API and its
+ * owner is the cloud origin; it used to path-carve /v1/models* + /v1/pricing* to
+ * this worker, which dark-holed 23 published pricing routes and made
+ * /v1/models/{model}/access uncallable. That carve is gone (hanzoai/universe
+ * infra/k8s/ingress/routes.yaml). One address, one implementation, each side of
+ * the boundary: public browsing here, the authenticated API there.
  */
 export const CATALOG_ORIGIN = 'https://pricing.hanzo.ai';
-
-// Authenticated callers on a path that also exists on cloud-api are proxied there
-// (so a token still yields cloud-api's own view — e.g. its callable-model list — not
-// the public marketing catalog). Anonymous callers get the edge cache. This is how
-// "public consumers -> CF cache; authenticated tenants -> authed cloud-api" is
-// honored, since the ingress fork can't branch on the Authorization header itself.
-export const AUTHED_ORIGIN = 'https://api.cloud.hanzo.ai';
 
 export const REGISTRY = {
   '/v1/models': {
     origin: `${CATALOG_ORIGIN}/v1/models`,
-    authedOrigin: `${AUTHED_ORIGIN}/v1/models`,
     description: 'OpenAI-compatible model catalog: { object:"list", data:[...] } plus families + summary.',
   },
   '/v1/pricing': {
     origin: `${CATALOG_ORIGIN}/v1/pricing`,
-    authedOrigin: `${AUTHED_ORIGIN}/v1/pricing`,
     description: 'Full pricing catalog: per-model input/output pricing, providers, free + featured models.',
   },
   '/v1/plans': {
     origin: `${CATALOG_ORIGIN}/v1/plans`,
     description: 'Subscription / cloud plans.',
   },
-  // Infrastructure pricing sub-resources. Namespaced under /v1/pricing/* so the
-  // one existing api.hanzo.ai catalog router (PathPrefix /v1/pricing) fronts them
-  // with no new Traefik rule. Cloud + GPU keep their upstream top-level origins
-  // (/v1/cloud, /v1/gpu) — the public path is namespaced, the origin is not.
+  // Infrastructure pricing sub-resources. Cloud + GPU keep their upstream
+  // top-level origins (/v1/cloud, /v1/gpu) — the public path is namespaced, the
+  // origin is not.
   '/v1/pricing/cloud': {
     origin: `${CATALOG_ORIGIN}/v1/cloud`,
     description: 'Cloud compute pricing (instances, vCPU/RAM/disk tiers).',

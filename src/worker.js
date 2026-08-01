@@ -2,11 +2,15 @@
  * Hanzo Public Catalog — Cloudflare edge-cached, daily-refreshed PUBLIC read-only
  * catalog (models, pricing, plans; extensible via src/registry.js).
  *
- * Why: cloud-api (api.hanzo.ai) is fully authenticated. Public-consumption catalog
- * data (marketing site, pre-login model browsing, docs) is served from HERE — a CF
- * edge cache in front of the canonical pricing service — so it is fast, global, and
- * never requires a token. Traefik splits `api.hanzo.ai/v1/{models,pricing}` (no auth
- * header) to this worker; authenticated + all other /v1 continue to the gateway.
+ * Why: public-consumption catalog data (marketing site, pre-login model browsing,
+ * docs) is served from HERE — a CF edge cache in front of the canonical pricing
+ * service — so it is fast, global, and never requires a token.
+ *
+ * It serves catalog.hanzo.ai and NOTHING else. api.hanzo.ai is the authenticated
+ * API and the cloud origin owns every path on it; the ingress used to carve
+ * /v1/models* + /v1/pricing* to this worker, which published 23 pricing routes
+ * the origin was never asked for and made /v1/models/{model}/access uncallable.
+ * A path has one owner, and the owner is the one that can describe itself.
  *
  * Serving order (never empty): CF Cache API (edge) -> KV (durable) -> origin
  * (read-through) -> bundled snapshot. Cache-Control carries stale-while-revalidate;
@@ -83,37 +87,6 @@ async function fetchOrigin(path) {
 
 async function putKV(env, path, text, meta) {
   if (env && env.CATALOG) await env.CATALOG.put(path, text, { metadata: meta });
-}
-
-// Authenticated pass-through to cloud-api. Never cached (per-user) and never falls
-// back to the public cache — a token must get cloud-api's real answer (incl. its
-// errors). This is the auth-branch the ingress fork can't express (no HeadersRegexp).
-async function proxyAuthed(request, url, authedOrigin) {
-  const target = new URL(authedOrigin);
-  target.search = url.search;
-  const fwd = new Headers();
-  for (const h of ['authorization', 'accept', 'content-type']) {
-    const v = request.headers.get(h);
-    if (v) fwd.set(h, v);
-  }
-  const method = request.method;
-  let upstream;
-  try {
-    upstream = await fetch(target.toString(), {
-      method,
-      headers: fwd,
-      body: method === 'GET' || method === 'HEAD' ? undefined : request.body,
-      redirect: 'manual',
-      cf: { cacheTtl: 0 },
-    });
-  } catch (e) {
-    return jsonResponse({ error: { message: `authed upstream unreachable: ${String((e && e.message) || e)}`, type: 'upstream_error' } }, { status: 502 });
-  }
-  const headers = new Headers(upstream.headers);
-  headers.set('cache-control', 'private, no-store');
-  headers.set('x-catalog-source', 'cloud-api');
-  headers.set('access-control-allow-origin', '*');
-  return new Response(method === 'HEAD' ? null : upstream.body, { status: upstream.status, statusText: upstream.statusText, headers });
 }
 
 // KV (durable) -> origin (read-through, persisted) -> bundled snapshot.
@@ -217,12 +190,6 @@ export default {
     const path = url.pathname.replace(/\/+$/, '') || '/';
     const registered = Object.prototype.hasOwnProperty.call(REGISTRY, path);
 
-    // Authenticated caller on a mirrored path -> proxy to authed cloud-api (any
-    // method), so a token yields cloud-api's own view, never the public cache.
-    if (registered && REGISTRY[path].authedOrigin && request.headers.get('authorization')) {
-      return proxyAuthed(request, url, REGISTRY[path].authedOrigin);
-    }
-
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
@@ -250,4 +217,4 @@ export default {
 };
 
 // Exported for tests.
-export { etagOf, resolve, refresh, fetchOrigin, catalogResponse, proxyAuthed };
+export { etagOf, resolve, refresh, fetchOrigin, catalogResponse };

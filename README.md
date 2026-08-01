@@ -13,8 +13,9 @@ curl https://catalog.hanzo.ai/v1/plans     # subscription / cloud plans
 curl https://catalog.hanzo.ai/             # self-describing index
 ```
 
-The public `api.hanzo.ai/v1/models` and `api.hanzo.ai/v1/pricing` GETs (no auth) are
-split to this cache at the ingress; authenticated calls go to cloud-api.
+This is the only host it serves. `api.hanzo.ai` is the authenticated API and the cloud
+origin owns every path on it — including `/v1/models` and `/v1/pricing/*`, which this
+worker used to intercept at the ingress. See [`LLM.md`](./LLM.md) for what that cost.
 
 See [`LLM.md`](./LLM.md) for architecture, the resource registry, routing, and how to
 add a new cached resource.
