@@ -11,7 +11,6 @@ not from an auth-bypass allowlist.
 |------|---------|
 | `GET /v1/models` | OpenAI-compatible model catalog (`{object:"list", data:[...]}` + families + summary) |
 | `GET /v1/pricing` | Full pricing catalog (per-model input/output, providers, free/featured) |
-| `GET /v1/plans` | Subscription / cloud plans |
 | `GET /` | Self-describing index (resources + last refresh) |
 | `GET /health` | `{status:"ok"}` |
 | `GET /__manifest` | Last cron result per resource |

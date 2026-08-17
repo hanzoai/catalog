@@ -174,13 +174,11 @@ test('scheduled refresh populates KV + manifest for every resource', async () =>
   installFetch({
     'https://pricing.hanzo.ai/v1/models': { body: MODELS_JSON },
     'https://pricing.hanzo.ai/v1/pricing': { body: '{"ok":true}' },
-    'https://pricing.hanzo.ai/v1/plans': { body: '{"plans":[]}' },
   });
   const kv = fakeKV();
   const manifest = await worker.scheduled({}, { CATALOG: kv }, ctxFactory().ctx);
   assert.equal(manifest.results['/v1/models'].ok, true);
   assert.equal(manifest.results['/v1/pricing'].ok, true);
-  assert.equal(manifest.results['/v1/plans'].ok, true);
   assert.equal(kv.store.get('/v1/models').value, MODELS_JSON);
   assert.ok(kv.store.get('__manifest'));
 });
@@ -206,10 +204,8 @@ test('scheduled refresh records per-origin failure without aborting others', asy
   installFetch({
     'https://pricing.hanzo.ai/v1/models': { body: MODELS_JSON },
     'https://pricing.hanzo.ai/v1/pricing': new Error('boom'),
-    'https://pricing.hanzo.ai/v1/plans': { body: '{"plans":[]}' },
   });
   const manifest = await worker.scheduled({}, { CATALOG: fakeKV() }, ctxFactory().ctx);
   assert.equal(manifest.results['/v1/models'].ok, true);
   assert.equal(manifest.results['/v1/pricing'].ok, false);
-  assert.equal(manifest.results['/v1/plans'].ok, true);
 });

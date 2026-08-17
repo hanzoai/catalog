@@ -31,10 +31,12 @@ export const REGISTRY = {
     origin: `${CATALOG_ORIGIN}/v1/pricing`,
     description: 'Full pricing catalog: per-model input/output pricing, providers, free + featured models.',
   },
-  '/v1/plans': {
-    origin: `${CATALOG_ORIGIN}/v1/plans`,
-    description: 'Subscription / cloud plans.',
-  },
+  // The subscription ladder is not cached here. cloud answers it at
+  // api.hanzo.ai/v1/pricing/subscriptions from @hanzo/plans, and commerce prices
+  // from the same bytes; an edge copy would be a second answer that ages on its
+  // own KV entry, which is what this path became. It also collided by name —
+  // on api.hanzo.ai, /v1/plans is cloud's machine sizes, not the ladder.
+  //
   // Infrastructure pricing sub-resources. Cloud + GPU keep their upstream
   // top-level origins (/v1/cloud, /v1/gpu) — the public path is namespaced, the
   // origin is not.
