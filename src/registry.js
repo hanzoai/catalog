@@ -3,24 +3,20 @@
  * public-consumption data the edge caches. Add a line to expose a new resource;
  * the worker (serving + daily cron) and the snapshot generator both read this.
  *
- * Canonical origin = the Hanzo pricing service (hanzoai/pricing, pricing.hanzo.ai):
- * a public, CORS-enabled aggregator that is already the source of truth for the
- * model + pricing catalog. It stays the origin; this layer is a CF edge cache in
- * front of it so public browsing is fast, global, and resilient to the origin.
+ * Canonical origin = api.hanzo.ai, where cloud computes the model and pricing
+ * catalog in Go (apps/pricing). This layer is a CF edge cache in front of it, so
+ * public browsing is fast, global, and survives the origin being slow.
  *
  * Each entry: publicPath -> { origin, description }.
  *   publicPath  the stable public URL path this worker serves, on
  *               catalog.hanzo.ai — the host this worker owns outright.
  *   origin      the canonical upstream URL the daily cron refreshes from.
  *
- * These paths are served HERE and nowhere else. api.hanzo.ai is the API and its
- * owner is the cloud origin; it used to path-carve /v1/models* + /v1/pricing* to
- * this worker, which dark-holed 23 published pricing routes and made
- * /v1/models/{model}/access uncallable. That carve is gone (hanzoai/universe
- * infra/k8s/ingress/routes.yaml). One address, one implementation, each side of
- * the boundary: public browsing here, the authenticated API there.
+ * These paths are served HERE and nowhere else: public browsing is this host,
+ * the authenticated API is api.hanzo.ai. One address, one implementation, each
+ * side of the boundary.
  */
-export const CATALOG_ORIGIN = 'https://pricing.hanzo.ai';
+export const CATALOG_ORIGIN = 'https://api.hanzo.ai';
 
 export const REGISTRY = {
   '/v1/models': {
@@ -37,16 +33,15 @@ export const REGISTRY = {
   // own KV entry, which is what this path became. It also collided by name —
   // on api.hanzo.ai, /v1/plans is cloud's machine sizes, not the ladder.
   //
-  // Infrastructure pricing sub-resources. Cloud + GPU keep their upstream
-  // top-level origins (/v1/cloud, /v1/gpu) — the public path is namespaced, the
-  // origin is not.
+  // Infrastructure pricing sub-resources. Every one of them is namespaced under
+  // /v1/pricing on the origin, public path and origin path alike.
   '/v1/pricing/cloud': {
-    origin: `${CATALOG_ORIGIN}/v1/cloud`,
+    origin: `${CATALOG_ORIGIN}/v1/pricing/cloud`,
     description: 'Cloud compute pricing (instances, vCPU/RAM/disk tiers).',
   },
   '/v1/pricing/gpu': {
-    origin: `${CATALOG_ORIGIN}/v1/gpu`,
-    description: 'GPU pricing (upstream serves this at /v1/gpu).',
+    origin: `${CATALOG_ORIGIN}/v1/pricing/gpu`,
+    description: 'GPU pricing.',
   },
   '/v1/pricing/datastore': {
     origin: `${CATALOG_ORIGIN}/v1/pricing/datastore`,

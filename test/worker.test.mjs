@@ -55,7 +55,7 @@ function installFetch(routes) {
   };
 }
 
-const MODELS_URL = 'https://pricing.hanzo.ai/v1/models';
+const MODELS_URL = 'https://api.hanzo.ai/v1/models';
 const MODELS_JSON = JSON.stringify({ object: 'list', data: [{ id: 'zen5', object: 'model' }] });
 const req = (path, init) => new Request(`https://catalog.hanzo.ai${path}`, init);
 
@@ -172,8 +172,8 @@ test('origin returns HTML error page -> rejected, snapshot fallback', async () =
 test('scheduled refresh populates KV + manifest for every resource', async () => {
   globalThis.caches = { default: fakeCache() };
   installFetch({
-    'https://pricing.hanzo.ai/v1/models': { body: MODELS_JSON },
-    'https://pricing.hanzo.ai/v1/pricing': { body: '{"ok":true}' },
+    'https://api.hanzo.ai/v1/models': { body: MODELS_JSON },
+    'https://api.hanzo.ai/v1/pricing': { body: '{"ok":true}' },
   });
   const kv = fakeKV();
   const manifest = await worker.scheduled({}, { CATALOG: kv }, ctxFactory().ctx);
@@ -202,8 +202,8 @@ test('a token changes nothing: the public cache answers, no upstream is dialled'
 test('scheduled refresh records per-origin failure without aborting others', async () => {
   globalThis.caches = { default: fakeCache() };
   installFetch({
-    'https://pricing.hanzo.ai/v1/models': { body: MODELS_JSON },
-    'https://pricing.hanzo.ai/v1/pricing': new Error('boom'),
+    'https://api.hanzo.ai/v1/models': { body: MODELS_JSON },
+    'https://api.hanzo.ai/v1/pricing': new Error('boom'),
   });
   const manifest = await worker.scheduled({}, { CATALOG: fakeKV() }, ctxFactory().ctx);
   assert.equal(manifest.results['/v1/models'].ok, true);

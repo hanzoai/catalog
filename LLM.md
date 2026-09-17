@@ -20,9 +20,10 @@ stale-while-revalidate=86400`, ETag + `If-None-Match` 304, `HEAD`/`OPTIONS`.
 
 ## Architecture (one way, decomplected)
 
-- **Canonical origin** = `hanzoai/pricing` (`pricing.hanzo.ai`) — the public catalog
-  aggregator. This worker is a **CF edge cache in front of it**, so public browsing is
-  fast/global and resilient to the origin. No service token (origin is public).
+- **Canonical origin** = `api.hanzo.ai` — cloud computes the catalog in Go
+  (`apps/pricing`). This worker is a **CF edge cache in front of it**, so public
+  browsing is fast/global and survives a slow origin. No service token (the
+  catalog paths are public).
 - **Serving order (never empty):** CF Cache API (edge) → KV `CATALOG` (durable) →
   origin (read-through, persisted) → bundled `src/snapshot.js` fallback.
 - **Daily refresh:** cron `0 6 * * *` re-fetches every registry origin, writes KV, warms
@@ -58,7 +59,7 @@ where carves are written.
 
 ```bash
 npm test                 # node --test, stubbed KV/Cache/fetch
-npm run snapshot         # regenerate src/snapshot.js from pricing.hanzo.ai
+npm run snapshot         # regenerate src/snapshot.js from api.hanzo.ai
 npx wrangler deploy      # deploy worker + custom domain + cron (global key auth)
 ```
 
