@@ -1,5 +1,7 @@
 # Hanzo Public Catalog
 
+[![Open in Hanzo](https://hanzo.app/badges/open-in-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/catalog&ref=main&action=open) [![Edit with Hanzo](https://hanzo.app/badges/edit-with-hanzo.svg)](https://hanzo.app/dev/open?repo=github.com/hanzoai/catalog&ref=main&action=edit)
+
 Cloudflare edge-cached, daily-refreshed **public** read-only catalog for Hanzo.
 Serves the model + pricing catalog to public consumers (marketing site, pre-login
 model browsing, docs) without a token, so `api.hanzo.ai` can stay fully authenticated.
